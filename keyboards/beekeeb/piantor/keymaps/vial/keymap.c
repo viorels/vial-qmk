@@ -3,6 +3,22 @@
 
 #include QMK_KEYBOARD_H
 
+enum layer_names {
+  _QWERTY,
+  _COLEMAK,
+  _NAV,
+  _SYM,
+  _NUM,
+  _FN
+};
+
+enum custom_keycodes {
+  C_GESC = USER00,
+  ALT_TAB,
+  GUI_TAB,
+  GUI_GRV
+};
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      /*
       * ┌───┬───┬───┬───┬───┬───┐       ┌───┬───┬───┬───┬───┬───┐
@@ -26,60 +42,160 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     )
 };
 
-#ifdef RGBLIGHT_ENABLE
-
-const rgblight_segment_t PROGMEM layer0_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 85, 255, 75}
-);
-const rgblight_segment_t PROGMEM layer1_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 170, 255, 75}
-);
-const rgblight_segment_t PROGMEM layer2_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 0, 255, 75}
-);
-const rgblight_segment_t PROGMEM layer3_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 191, 255, 75}
-);
-const rgblight_segment_t PROGMEM layer4_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 30, 218, 75}
-);
-const rgblight_segment_t PROGMEM layer5_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 11, 176, 75}
-);
-const rgblight_segment_t PROGMEM layer6_colors[] = RGBLIGHT_LAYER_SEGMENTS(
-    {0, 2, 106, 255, 75}
-);
-
-// Now define the array of layers. Later layers take precedence
-const rgblight_segment_t* const PROGMEM rgb_layers[] = RGBLIGHT_LAYERS_LIST(
-    layer0_colors,
-    layer1_colors,
-    layer2_colors,
-    layer3_colors,
-    layer4_colors,
-    layer5_colors,
-    layer6_colors
-);
-
-void keyboard_post_init_user(void) {
-    // Enable the LED layers
-    rgblight_layers = rgb_layers;
-}
-
-layer_state_t default_layer_state_set_user(layer_state_t state) {
-    rgblight_set_layer_state(0, layer_state_cmp(state, 0));
-    return state;
-}
+bool is_alt_tab_active = false;
 
 layer_state_t layer_state_set_user(layer_state_t state) {
-    rgblight_set_layer_state(0, layer_state_cmp(state, 0));
-    rgblight_set_layer_state(1, layer_state_cmp(state, 1));
-    rgblight_set_layer_state(2, layer_state_cmp(state, 2));
-    rgblight_set_layer_state(3, layer_state_cmp(state, 3));
-    rgblight_set_layer_state(4, layer_state_cmp(state, 4));
-    rgblight_set_layer_state(5, layer_state_cmp(state, 5));
-    rgblight_set_layer_state(6, layer_state_cmp(state, 6));
+    if (is_alt_tab_active) {
+        unregister_code(KC_LALT);
+        unregister_code(KC_LGUI);
+        is_alt_tab_active = false;
+    }
     return state;
 }
 
-#endif
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+
+  static uint16_t lctl_timer;
+
+  switch (keycode) {
+    case C_GESC:
+        if(record->event.pressed) {
+            lctl_timer = timer_read();
+            register_code(KC_LCTL); // Change the key to be held here
+        }
+        else {
+            unregister_code(KC_LCTL); // Change the key that was held here, too!
+            if (timer_elapsed(lctl_timer) < TAPPING_TERM) {
+                if (get_mods() & MOD_BIT(KC_LGUI)) {
+                    tap_code(KC_GRAVE);
+                } else {
+                    tap_code(KC_ESC);
+                }
+            }
+        }
+        return false; // We handled this keypress
+
+    case ALT_TAB: // super alt tab macro
+    case GUI_TAB:
+        if (record->event.pressed) {
+            if (!is_alt_tab_active) {
+                is_alt_tab_active = true;
+                register_code(keycode == ALT_TAB ? KC_LALT : KC_LGUI);
+            }
+            register_code(KC_TAB);
+        } else {
+            unregister_code(KC_TAB);
+        }
+        break;
+
+    case GUI_GRV:
+        if (record->event.pressed) {
+            if (!is_alt_tab_active) {
+                is_alt_tab_active = true;
+                register_code(keycode == ALT_TAB ? KC_LALT : KC_LGUI);
+            }
+            register_code(KC_GRV);
+        } else {
+            unregister_code(KC_GRV);
+        }
+        break;
+  }
+  return true;
+}
+
+bool get_tapping_force_hold_user(uint16_t keycode, keyrecord_t *record, bool _default) {
+  switch (keycode) {
+    case LT(_NUM, KC_SPC):
+    case LT(_SYM, KC_BSPC):
+      return true;
+    default:
+      return _default;
+  }
+}
+
+uint16_t get_tapping_term_user(uint16_t keycode, keyrecord_t *record, uint16_t _default) {
+  switch (keycode) {
+    // keys used in fast combos, works fine with default TAPPING_TERM of 150
+    case C_GESC:
+    case LCTL_T(KC_QUOTE):
+    case LT(_SYM, KC_BSPC):
+      return _default - 50;
+    case KC_LSFT:
+      return _default + 50; // easy to activate CAPS_WORD
+    default:
+      return _default;
+  }
+}
+
+bool encoder_update_user(uint8_t index, bool clockwise) {
+  if (layer_state_is(_NUM)) {
+    // clockwise ? tap_code(KC_BRIU) : tap_code(KC_BRID);
+    clockwise ? tap_code(KC_VOLU) : tap_code(KC_VOLD);
+  }
+  else if (layer_state_is(_NAV)) {
+    clockwise ? tap_code(KC_RIGHT) : tap_code(KC_LEFT);
+
+    if ((get_mods() & MOD_BIT(KC_LCTL)) && (get_mods() & MOD_BIT(KC_LALT))) {
+      clockwise ? tap_code(KC_DOWN) : tap_code(KC_UP);
+    }
+
+    /* undo/redo
+    if (get_mods() & MOD_BIT(KC_LSHIFT)) {  // use shift-z for redo
+        if (clockwise) {
+            tap_code16(LCTL(KC_Z));         // shift is already pressed
+        } else {
+            // WITHOUT_MODS({
+            //     tap_code16(LCTL(KC_Z));
+            // });
+        }
+    }
+    else {                                  // use ctrl-y for redo
+      clockwise ? tap_code16(LCTL(KC_Y)) : tap_code16(LCTL(KC_Z));
+    }
+    */
+  }
+  else if (layer_state_is(_SYM)) {
+      // nothing
+  }
+  else {  // default layer
+    // change desktop ctrl-alt-up/down (also move window with shift)
+    if ((get_mods() & MOD_BIT(KC_LCTL)) && (get_mods() & MOD_BIT(KC_LALT))) {
+      clockwise ? tap_code(KC_DOWN) : tap_code(KC_UP);
+    }
+    // alt-tab for windows, ctrl-tab for browser tabs (XOR/(!a != !b), only ONE of alt/ctrl pressed)
+    else if (get_mods() & (MOD_BIT(KC_LALT) | MOD_BIT(KC_LGUI))) {
+        clockwise ? tap_code(KC_TAB) : tap_code16(LSFT(KC_TAB));
+    }
+    else if (get_mods() & MOD_BIT(KC_LCTL)) {
+        // clockwise ? tap_code(KC_TAB) : tap_code16(LSFT(KC_TAB));
+        clockwise ? tap_code16(LCTL(KC_PGDN)) : tap_code16(LCTL(KC_PGUP));
+    }
+    else {
+        clockwise ? tap_code(KC_WH_D) : tap_code(KC_WH_U);
+        // clockwise ? tap_code(KC_VOLU) : tap_code(KC_VOLD);
+    }
+  }
+
+  return false;
+}
+
+bool caps_word_press_user(uint16_t keycode) {
+    switch (keycode) {
+        // Keycodes that continue Caps Word, with shift applied.
+        case KC_A ... KC_Z:
+            add_weak_mods(MOD_BIT(KC_LSFT));  // Apply shift to next key.
+            return true;
+
+        // Keycodes that continue Caps Word, without shifting.
+        case KC_1 ... KC_0:
+        case KC_BSPC:
+        case KC_DEL:
+        case KC_MINS:
+        case KC_UNDS:
+        case KC_TAB:  // extra key that does not break CAPS_WORD
+            return true;
+
+        default:
+            return false;  // Deactivate Caps Word.
+    }
+}
