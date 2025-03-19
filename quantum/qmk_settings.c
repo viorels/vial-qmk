@@ -257,7 +257,8 @@ int qmk_settings_set(uint16_t qsid, const void *setting, size_t maxsz) {
 }
 
 uint16_t qs_get_tapping_term(uint16_t keycode, keyrecord_t *record) {
-    return QS.tapping_term;
+    // return QS.tapping_term;
+    return get_tapping_term_user(keycode, record, QS.tapping_term);
 }
 
 bool get_permissive_hold(uint16_t keycode, keyrecord_t *record) {
@@ -272,7 +273,8 @@ uint16_t get_quick_tap_term(uint16_t keycode, keyrecord_t *record) {
     if (QS.tapping & 4) {
         return 0;
     } else {
-        return QS.tapping_term;
+        // return QS.tapping_term;
+        return get_quick_tap_term_user(keycode, record, QS.tapping_term);
     }
 }
 

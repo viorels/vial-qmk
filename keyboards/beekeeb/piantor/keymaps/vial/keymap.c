@@ -13,7 +13,7 @@ enum layer_names {
 };
 
 enum custom_keycodes {
-  C_GESC = USER00,
+  C_GESC = QK_KB_0,
   ALT_TAB,
   GUI_TAB,
   GUI_GRV
@@ -103,11 +103,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   return true;
 }
 
-bool get_tapping_force_hold_user(uint16_t keycode, keyrecord_t *record, bool _default) {
+uint16_t get_quick_tap_term_user(uint16_t keycode, keyrecord_t *record, bool _default) {
   switch (keycode) {
     case LT(_NUM, KC_SPC):
     case LT(_SYM, KC_BSPC):
-      return true;
+      return 0;     // prevent auto-repeat on double-tap
     default:
       return _default;
   }
