@@ -103,9 +103,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
   return true;
 }
 
+// previously get_tapping_force_hold
 uint16_t get_quick_tap_term_user(uint16_t keycode, keyrecord_t *record, bool _default) {
   switch (keycode) {
     case LT(_NUM, KC_SPC):
+    case LT(_NAV, KC_SPC):
     case LT(_SYM, KC_BSPC):
       return 0;     // prevent auto-repeat on double-tap
     default:
@@ -119,6 +121,7 @@ uint16_t get_tapping_term_user(uint16_t keycode, keyrecord_t *record, uint16_t _
     case C_GESC:
     case LCTL_T(KC_QUOTE):
     case LT(_SYM, KC_BSPC):
+    case LT(_NAV, KC_SPC):
       return _default - 50;
     case KC_LSFT:
       return _default + 50; // easy to activate CAPS_WORD
